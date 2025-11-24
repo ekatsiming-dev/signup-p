@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作坊管理中控台 | Admin & Check-in</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#a94438',
+                        accent: '#3a4a61',
+                        dark: '#0f0f0f',
+                        card: '#1e1e1e',
+                        success: '#10b981'
+                    },
+                    fontFamily: { sans: ['"Noto Sans TC"', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0f0f0f; color: #e5e5e5; }
+        .glass-panel { background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
+        
+        /* Toggle Switch Animation */
+        .toggle-btn { transition: all 0.3s ease; cursor: pointer; opacity: 0.4; filter: grayscale(100%); }
+        .toggle-btn.active { opacity: 1; filter: grayscale(0%); transform: scale(1.1); }
+        
+        /* Login Overlay */
+        #loginOverlay { background: #0f0f0f; z-index: 9999; }
+    </style>
+</head>
+<body class="min-h-screen relative overflow-hidden">
+
+    <!-- 1. 安全鎖定畫面 (Login Overlay) -->
+    <div id="loginOverlay" class="fixed inset-0 flex flex-col items-center justify-center">
+        <div class="text-center space-y-6 animate-fade-in">
+            <h1 class="text-3xl font-bold text-primary tracking-widest"><i class="fas fa-lock"></i> 系統鎖定</h1>
+            <p class="text-gray-500 text-sm">請輸入工作人員通行碼</p>
+            <div class="flex gap-2">
+                <input type="password" id="passcode" class="bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-center text-xl text-white outline-none focus:border-primary w-48 tracking-[0.5em]" placeholder="****" maxlength="4">
+                <button onclick="checkPasscode()" class="bg-primary hover:bg-red-600 text-white px-6 rounded-lg font-bold"><i class="fas fa-arrow-right"></i></button>
+            </div>
+            <p id="loginMsg" class="text-red-500 text-xs h-4"></p>
+        </div>
+    </div>
+
+    <!-- 2. 主介面 (初始隱藏) -->
+    <div id="mainApp" class="hidden p-4 md:p-8 max-w-7xl mx-auto">
+        
+        <!-- Header & Stats -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b border-white/10 pb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+                    <span class="bg-primary w-2 h-8 rounded-full"></span>
+                    管理中控台
+                    <span class="text-xs px-2 py-1 bg-white/10 rounded text-gray-400">Admin & Check-in</span>
+                </h1>
+            </div>
+            
+            <div class="flex gap-4 text-sm">
+                <div class="bg-card px-4 py-2 rounded-lg border border-white/5 flex flex-col items-center">
+                    <span class="text-gray-500 text-xs uppercase">總報名</span>
+                    <span class="text-xl font-bold text-white" id="statTotal">0</span>
+                </div>
+                <div class="bg-card px-4 py-2 rounded-lg border border-success/30 bg-success/10 flex flex-col items-center">
+                    <span class="text-green-400 text-xs uppercase">已報到</span>
+                    <span class="text-xl font-bold text-green-400" id="statCheckin">0</span>
+                </div>
+                <button onclick="loadData()" class="bg-accent hover:bg-slate-600 text-white w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:rotate-180">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Search & Filters -->
+        <div class="mb-6 flex flex-col md:flex-row gap-4">
+            <div class="relative flex-1">
+                <i class="fas fa-search absolute left-4 top-3.5 text-gray-500"></i>
+                <input type="text" id="searchBox" onkeyup="filterTable()" placeholder="搜尋姓名、機構、電話..." 
+                    class="w-full bg-card border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all">
+            </div>
+            <div class="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+                <button onclick="filterStatus('all')" class="filter-chip px-4 py-2 rounded-full bg-white/10 text-white text-sm hover:bg-white/20 whitespace-nowrap active-chip ring-1 ring-primary">全部</button>
+                <button onclick="filterStatus('checked')" class="filter-chip px-4 py-2 rounded-full bg-card text-gray-400 text-sm hover:bg-white/10 whitespace-nowrap">已報到</button>
+                <button onclick="filterStatus('receipt')" class="filter-chip px-4 py-2 rounded-full bg-card text-gray-400 text-sm hover:bg-white/10 whitespace-nowrap">需收據</button>
+            </div>
+        </div>
+
+        <!-- Main Table -->
+        <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl min-h-[500px]">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-white/5 text-gray-300 uppercase tracking-wider text-xs font-bold border-b border-white/10">
+                        <tr>
+                            <th class="px-6 py-4 w-24">報到狀態</th>
+                            <th class="px-6 py-4">姓名 / 機構</th>
+                            <th class="px-6 py-4">身份別</th>
+                            <th class="px-6 py-4">飲食</th>
+                            <th class="px-6 py-4 text-center">物資發放</th>
+                            <th class="px-6 py-4 text-right">管理</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-white/5">
+                        <!-- Data will be injected here -->
+                        <tr><td colspan="6" class="p-10 text-center"><i class="fas fa-circle-notch fa-spin text-primary text-2xl"></i></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Area -->
+    <script>
+        // *** 設定區 ***
+        const API_URL = "https://script.google.com/macros/s/AKfycbyW7u8u6nbtZkN-aO9TOUjO5bJrNiEDopul1Zj-rletabkD_L8u2_FwqRQPxWwcrPnZkQ/exec";
+        const PASSCODE = "8888"; // 設定您的通行碼
+        
+        // 全域變數
+        let allData = [];
+
+        // 1. 登入檢查
+        function checkPasscode() {
+            const input = document.getElementById('passcode');
+            const msg = document.getElementById('loginMsg');
+            if (input.value === PASSCODE) {
+                document.getElementById('loginOverlay').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                loadData(); // 登入成功後載入資料
+            } else {
+                msg.textContent = "通行碼錯誤";
+                input.value = "";
+                input.focus();
+            }
+        }
+        // 支援 Enter 鍵登入
+        document.getElementById('passcode').addEventListener('keypress', (e) => { if(e.key === 'Enter') checkPasscode(); });
+
+        // 2. 載入資料
+        function loadData() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '<tr><td colspan="6" class="p-10 text-center text-gray-500"><i class="fas fa-circle-notch fa-spin text-primary mr-2"></i> 同步雲端資料中...</td></tr>';
+
+            fetch(API_URL)
+                .then(res => res.json())
+                .then(response => {
+                    if (response.result === 'success') {
+                        allData = response.data.reverse(); // 最新在最上面
+                        renderTable(allData);
+                        updateStats();
+                    } else {
+                        alert("讀取失敗: " + response.error);
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    tbody.innerHTML = '<tr><td colspan="6" class="p-10 text-center text-red-400">連線失敗，請檢查網路或 API 網址</td></tr>';
+                });
+        }
+
+        // 3. 渲染表格
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-10 text-center text-gray-500">尚無報名資料</td></tr>';
+                return;
+            }
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-white/5 transition-colors group";
+                
+                // 繳費證明圖示
+                const proofIcon = (row.paymentProof && row.paymentProof.startsWith('http')) 
+                    ? `<a href="${row.paymentProof}" target="_blank" class="text-accent hover:text-white ml-2" title="查看繳費證明"><i class="fas fa-image"></i></a>` 
+                    : '';
+
+                // 報到按鈕樣式
+                const isCheckedIn = row.checkin === 'TRUE';
+                const checkinBtnClass = isCheckedIn 
+                    ? "bg-success text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]" 
+                    : "bg-white/10 text-gray-500 hover:bg-white/20";
+                const checkinIcon = isCheckedIn ? "fa-check" : "fa-user-clock";
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4">
+                        <button onclick="toggleStatus(${row.row}, 'checkin', ${!isCheckedIn})" class="w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${checkinBtnClass}">
+                            <i class="fas ${checkinIcon} text-lg"></i>
+                        </button>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-white font-bold text-base">${row.name}</div>
+                        <div class="text-xs text-gray-500">${row.org}</div>
+                        <div class="text-[10px] text-gray-600">${row.phone}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 rounded text-xs border border-white/10 ${row.identity === '院內' ? 'bg-blue-500/10 text-blue-400' : 'bg-orange-500/10 text-orange-400'}">
+                            ${row.identity}
+                        </span>
+                        ${proofIcon}
+                    </td>
+                    <td class="px-6 py-4">
+                        ${row.diet === '素食' ? '<span class="text-green-400 font-bold"><i class="fas fa-leaf mr-1"></i>素食</span>' : '<span class="text-gray-600">葷食</span>'}
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <div class="flex justify-center gap-4">
+                            <!-- 收據開關 -->
+                            <div onclick="toggleStatus(${row.row}, 'receipt', ${row.receipt !== 'TRUE'})" 
+                                 class="toggle-btn flex flex-col items-center gap-1 ${row.receipt === 'TRUE' ? 'active text-success' : 'text-gray-500'}">
+                                <i class="fas fa-receipt text-xl"></i>
+                                <span class="text-[10px]">收據</span>
+                            </div>
+                            <!-- 餐券開關 -->
+                            <div onclick="toggleStatus(${row.row}, 'meal', ${row.meal !== 'TRUE'})" 
+                                 class="toggle-btn flex flex-col items-center gap-1 ${row.meal === 'TRUE' ? 'active text-orange-400' : 'text-gray-500'}">
+                                <i class="fas fa-utensils text-xl"></i>
+                                <span class="text-[10px]">餐券</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="deleteMember(${row.row}, '${row.name}')" class="text-gray-600 hover:text-red-500 transition-colors p-2" title="刪除並寄送取消信">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 4. 更新單一狀態 (API)
+        function toggleStatus(rowIndex, field, newValue) {
+            // 樂觀更新 UI (先變色，再呼叫 API)
+            // 為了簡化，這裡直接重新整理資料，但理想狀況是先改 DOM。
+            // 考慮到體驗，我們先顯示 loading 遮罩比較簡單
+            
+            // 簡單的 Loading 提示
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-4 right-4 bg-primary text-white px-4 py-2 rounded shadow-lg animate-bounce z-50';
+            toast.innerHTML = '<i class="fas fa-sync fa-spin"></i> 更新中...';
+            document.body.appendChild(toast);
+
+            fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'update_status', row: rowIndex, field: field, value: newValue }),
+                headers: { "Content-Type": "text/plain" }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.result === 'success') {
+                    // 更新本地資料 (避免整頁重整的閃爍)
+                    const targetRow = allData.find(r => r.row === rowIndex);
+                    if(targetRow) {
+                        if(field === 'checkin') targetRow.checkin = newValue ? 'TRUE' : 'FALSE';
+                        if(field === 'receipt') targetRow.receipt = newValue ? 'TRUE' : 'FALSE';
+                        if(field === 'meal') targetRow.meal = newValue ? 'TRUE' : 'FALSE';
+                    }
+                    // 重新渲染當前視圖
+                    filterTable(); 
+                    updateStats();
+                } else {
+                    alert('更新失敗');
+                }
+            })
+            .finally(() => toast.remove());
+        }
+
+        // 5. 刪除成員 (API)
+        function deleteMember(rowIndex, name) {
+            if (confirm(`【危險操作】\n\n確定要刪除「${name}」的報名資料嗎？\n\n注意：\n1. 此操作無法復原。\n2. 系統將自動寄送「取消通知信」給該學員。`)) {
+                
+                fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'delete', row: rowIndex }),
+                    headers: { "Content-Type": "text/plain" }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.result === 'success') {
+                        alert(`已刪除 ${name} 並發送通知。`);
+                        loadData(); // 必須重整，因為 Row Index 會變動
+                    } else {
+                        alert("刪除失敗: " + data.error);
+                    }
+                });
+            }
+        }
+
+        // 6. 搜尋與過濾
+        function filterTable() {
+            const query = document.getElementById('searchBox').value.toLowerCase();
+            const filtered = allData.filter(row => {
+                const matchText = (row.name + row.org + row.phone).toLowerCase().includes(query);
+                
+                // 狀態過濾 (利用 active-chip 判斷)
+                const activeFilter = document.querySelector('.active-chip').innerText;
+                if (activeFilter === '已報到' && row.checkin !== 'TRUE') return false;
+                if (activeFilter === '需收據' && row.receipt === 'TRUE') return false; // 顯示"還沒領"的
+                
+                return matchText;
+            });
+            renderTable(filtered);
+        }
+
+        function filterStatus(type) {
+            // 更新按鈕樣式
+            document.querySelectorAll('.filter-chip').forEach(btn => {
+                btn.classList.remove('active-chip', 'bg-white/10', 'text-white', 'ring-1', 'ring-primary');
+                btn.classList.add('bg-card', 'text-gray-400');
+            });
+            const clickedBtn = event.target;
+            clickedBtn.classList.remove('bg-card', 'text-gray-400');
+            clickedBtn.classList.add('active-chip', 'bg-white/10', 'text-white', 'ring-1', 'ring-primary');
+            
+            filterTable(); // 觸發過濾
+        }
+
+        function updateStats() {
+            document.getElementById('statTotal').innerText = allData.length;
+            const checkedIn = allData.filter(r => r.checkin === 'TRUE').length;
+            document.getElementById('statCheckin').innerText = checkedIn;
+        }
+    </script>
+</body>
+</html>
