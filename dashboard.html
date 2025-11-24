@@ -3,14 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>報名狀況儀表板 | 工作坊 2026</title>
-    <!-- Tailwind CSS -->
+    <title>即時儀表板 | Dashboard V3.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 
     <script>
@@ -20,14 +16,11 @@
                     colors: {
                         primary: '#a94438',
                         accent: '#3a4a61',
-                        light: '#f4f1ea',
                         dark: '#0f0f0f',
-                        darkLayer: '#1a1a1a',
-                        card: '#242424'
+                        card: '#1e1e1e',
+                        success: '#10b981'
                     },
-                    fontFamily: {
-                        sans: ['"Noto Sans TC"', 'sans-serif'],
-                    }
+                    fontFamily: { sans: ['"Noto Sans TC"', 'sans-serif'] }
                 }
             }
         }
@@ -40,365 +33,214 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 1rem;
         }
-        /* Status Badge Animation */
-        @keyframes pulse-green {
-            0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4); }
-            70% { box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
-        }
-        .status-dot-live {
-            animation: pulse-green 2s infinite;
-        }
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; transform: translateY(10px); }
+        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="min-h-screen p-6 md:p-12 relative">
+<body class="min-h-screen p-6 md:p-12">
 
-    <!-- Header & Status Bar -->
-    <div class="max-w-7xl mx-auto mb-8 mt-4">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-            <div>
-                <div class="flex items-center gap-3 mb-2">
-                    <h1 class="text-3xl font-bold text-primary">
-                        <i class="fas fa-chart-line mr-2"></i>報名狀況儀表板
-                    </h1>
-                    <!-- Status Badge -->
-                    <div id="statusBadge" class="hidden px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2 border">
-                        <span class="w-2 h-2 rounded-full bg-current"></span>
-                        <span id="statusText">檢查中...</span>
-                    </div>
-                </div>
-                <p class="text-gray-400 text-sm">即時監控活動報名數據 (已隱藏個人識別資料)</p>
-            </div>
-            
-            <div class="flex gap-3 flex-wrap">
-                <!-- 新增：返回報名頁按鈕 -->
-                <a href="signup.html" class="flex items-center px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-sm text-gray-300 hover:text-white transition-all">
-                    <i class="fas fa-arrow-left mr-2"></i> 返回報名頁
-                </a>
-
-                <button onclick="fetchData()" class="bg-accent hover:bg-slate-600 text-white px-6 py-2 rounded-full text-sm transition-all flex items-center gap-2 shadow-lg shadow-accent/20">
-                    <i class="fas fa-sync-alt" id="refreshIcon"></i> 更新數據
-                </button>
-            </div>
+    <!-- Header -->
+    <div class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-end gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-primary flex items-center gap-3">
+                <i class="fas fa-chart-pie"></i> 活動戰情儀表板
+            </h1>
+            <p class="text-gray-400 text-sm mt-1">即時監控 V3.0 系統數據</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="admin.html" class="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors text-gray-300">
+                <i class="fas fa-cog mr-2"></i>前往管理後台
+            </a>
+            <button onclick="fetchData()" class="px-4 py-2 bg-accent hover:bg-slate-600 rounded-lg text-sm text-white transition-colors flex items-center gap-2">
+                <i class="fas fa-sync-alt" id="refreshIcon"></i> 更新數據
+            </button>
         </div>
     </div>
 
-    <!-- Loading State -->
-    <div id="loading" class="text-center py-20">
-        <div class="inline-block w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4"></div>
-        <p class="text-gray-400 animate-pulse">正在連線至 Google Sheets...</p>
-    </div>
-
-    <!-- Dashboard Content -->
-    <div id="dashboard" class="hidden max-w-7xl mx-auto space-y-6 opacity-0 transition-opacity duration-500">
+    <!-- Metrics Cards -->
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <!-- Card 1 -->
+        <div class="glass-card p-6 border-l-4 border-primary relative overflow-hidden group">
+            <div class="absolute right-0 top-0 w-20 h-20 bg-primary/10 rounded-bl-full transition-transform group-hover:scale-110"></div>
+            <p class="text-gray-400 text-xs uppercase tracking-wider">總報名人數</p>
+            <h2 class="text-4xl font-bold text-white mt-2" id="totalCount">0</h2>
+            <div class="mt-2 text-xs text-gray-500">Total Signups</div>
+        </div>
         
-        <!-- Key Metrics Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <!-- Total -->
-            <div class="glass-card p-6 relative overflow-hidden group">
-                <div class="absolute -right-6 -top-6 w-24 h-24 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition"></div>
-                <div class="text-gray-400 text-sm mb-1">總報名人數</div>
-                <div class="text-4xl font-bold text-white" id="totalCount">0</div>
-                <div class="mt-2 text-xs text-gray-500 flex items-center">
-                    <i class="fas fa-user-friends mr-1"></i> Count
-                </div>
-            </div>
-            <!-- Physical -->
-            <div class="glass-card p-6 border-l-4 border-primary relative overflow-hidden">
-                <div class="text-gray-400 text-sm mb-1">實體參與</div>
-                <div class="text-4xl font-bold text-primary" id="physicalCount">0</div>
-                <div class="mt-2 text-xs text-gray-500">Live Attendance</div>
-            </div>
-            <!-- Online -->
-            <div class="glass-card p-6 border-l-4 border-accent relative overflow-hidden">
-                <div class="text-gray-400 text-sm mb-1">線上參與</div>
-                <div class="text-4xl font-bold text-accent" id="onlineCount">0</div>
-                <div class="mt-2 text-xs text-gray-500">Virtual Attendance</div>
-            </div>
-            <!-- Hosts -->
-            <div class="glass-card p-6 relative overflow-hidden">
-                <div class="text-gray-400 text-sm mb-1">計畫主持人</div>
-                <div class="text-4xl font-bold text-white" id="hostCount">0</div>
-                <div class="mt-2 text-xs text-gray-500">Hosts</div>
-            </div>
+        <!-- Card 2 -->
+        <div class="glass-card p-6 border-l-4 border-success relative overflow-hidden group">
+            <div class="absolute right-0 top-0 w-20 h-20 bg-success/10 rounded-bl-full transition-transform group-hover:scale-110"></div>
+            <p class="text-gray-400 text-xs uppercase tracking-wider">已報到人數</p>
+            <h2 class="text-4xl font-bold text-success mt-2" id="checkinCount">0</h2>
+            <div class="mt-2 text-xs text-gray-500" id="checkinRate">0% 報到率</div>
         </div>
 
-        <!-- Charts Row 1 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Job Categories Chart -->
-            <div class="glass-card p-6">
-                <div class="flex justify-between items-center mb-6 border-b border-white/10 pb-2">
-                    <h3 class="text-lg font-bold">負責職類分佈</h3>
-                    <i class="fas fa-chart-bar text-gray-600"></i>
-                </div>
-                <div class="h-64">
-                    <canvas id="categoryChart"></canvas>
-                </div>
-            </div>
-            <!-- Participation Mode -->
-            <div class="glass-card p-6">
-                 <div class="flex justify-between items-center mb-6 border-b border-white/10 pb-2">
-                    <h3 class="text-lg font-bold">參與方式比例</h3>
-                    <i class="fas fa-chart-pie text-gray-600"></i>
-                </div>
-                <div class="h-64 flex justify-center">
-                    <canvas id="participationChart"></canvas>
-                </div>
-            </div>
+        <!-- Card 3 -->
+        <div class="glass-card p-6 border-l-4 border-orange-400 relative overflow-hidden group">
+            <div class="absolute right-0 top-0 w-20 h-20 bg-orange-400/10 rounded-bl-full transition-transform group-hover:scale-110"></div>
+            <p class="text-gray-400 text-xs uppercase tracking-wider">院外人士 (需收據)</p>
+            <h2 class="text-4xl font-bold text-orange-400 mt-2" id="externalCount">0</h2>
+            <div class="mt-2 text-xs text-gray-500">External Guests</div>
         </div>
 
-        <!-- Recent Registrations Table (Anonymized) -->
+        <!-- Card 4 -->
+        <div class="glass-card p-6 border-l-4 border-green-400 relative overflow-hidden group">
+            <div class="absolute right-0 top-0 w-20 h-20 bg-green-400/10 rounded-bl-full transition-transform group-hover:scale-110"></div>
+            <p class="text-gray-400 text-xs uppercase tracking-wider">素食需求</p>
+            <h2 class="text-4xl font-bold text-green-400 mt-2" id="vegCount">0</h2>
+            <div class="mt-2 text-xs text-gray-500">Vegetarian Meals</div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div class="glass-card p-6">
-            <h3 class="text-lg font-bold mb-6 border-b border-white/10 pb-2">
-                最新報名單位 <span class="text-xs font-normal text-gray-500 ml-2">(已自動隱藏姓名/個資)</span>
-            </h3>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm text-gray-300">
-                    <thead class="bg-white/5 text-primary uppercase tracking-wider">
-                        <tr>
-                            <th class="px-6 py-3 rounded-l-lg">機構名稱</th>
-                            <th class="px-6 py-3">職稱</th>
-                            <th class="px-6 py-3">職類</th>
-                            <th class="px-6 py-3 rounded-r-lg">參與方式</th>
-                        </tr>
-                    </thead>
-                    <tbody id="dataTableBody" class="divide-y divide-white/5">
-                        <!-- Data will be injected here -->
-                    </tbody>
-                </table>
+            <h3 class="text-lg font-bold mb-4 border-b border-white/10 pb-2">身分分佈 (Identity)</h3>
+            <div class="h-64 flex justify-center">
+                <canvas id="identityChart"></canvas>
             </div>
         </div>
+        <div class="glass-card p-6">
+            <h3 class="text-lg font-bold mb-4 border-b border-white/10 pb-2">飲食習慣 (Diet)</h3>
+            <div class="h-64 flex justify-center">
+                <canvas id="dietChart"></canvas>
+            </div>
+        </div>
+    </div>
 
+    <!-- Recent List -->
+    <div class="max-w-7xl mx-auto glass-card p-6">
+        <h3 class="text-lg font-bold mb-4 border-b border-white/10 pb-2">最新報名動態</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-400">
+                <thead class="bg-white/5 text-gray-200">
+                    <tr>
+                        <th class="px-6 py-3">狀態</th>
+                        <th class="px-6 py-3">姓名</th>
+                        <th class="px-6 py-3">單位</th>
+                        <th class="px-6 py-3">身份</th>
+                        <th class="px-6 py-3">飲食</th>
+                    </tr>
+                </thead>
+                <tbody id="recentTable" class="divide-y divide-white/5">
+                    <tr><td colspan="5" class="p-4 text-center">載入中...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script>
-        // 設定區：Google Apps Script 網址
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyW7u8u6nbtZkN-aO9TOUjO5bJrNiEDopul1Zj-rletabkD_L8u2_FwqRQPxWwcrPnZkQ/exec";
+        // 設定區 (已填入您的 API)
+        const API_URL = "https://script.google.com/macros/s/AKfycbwRaE7CAYEUVC43_8StimbuLAZtaHYDPndailVfSq6UwKde_kgQtwl5Bow-LvD7Pgi-5Q/exec";
+        
+        let identityChart = null;
+        let dietChart = null;
 
-        // Charts Instances
-        let categoryChartInst = null;
-        let participationChartInst = null;
-
-        // Fetch Data on Load
         document.addEventListener('DOMContentLoaded', fetchData);
 
         function fetchData() {
-            const loading = document.getElementById('loading');
-            const dashboard = document.getElementById('dashboard');
-            const refreshIcon = document.getElementById('refreshIcon');
-            const statusBadge = document.getElementById('statusBadge');
-            const statusText = document.getElementById('statusText');
+            const btn = document.getElementById('refreshIcon');
+            btn.classList.add('fa-spin');
 
-            // Reset UI state
-            loading.classList.remove('hidden');
-            dashboard.classList.add('hidden');
-            dashboard.classList.remove('opacity-100');
-            refreshIcon.classList.add('fa-spin');
-
-            // 1. Check URL first
-            if (!SCRIPT_URL || SCRIPT_URL.includes("在此處")) {
-                showErrorState("未設定 API 網址");
-                return;
-            }
-
-            // 2. Fetch Data (Add timestamp to prevent caching)
-            const targetUrl = SCRIPT_URL + (SCRIPT_URL.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
-
-            fetch(targetUrl)
-                .then(res => {
-                    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-                    return res.json();
-                })
+            fetch(API_URL)
+                .then(res => res.json())
                 .then(response => {
-                    if (response.result === 'success') {
-                        // SUCCESS: Show Live Data
+                    if(response.result === 'success') {
                         updateDashboard(response.data);
-                        showStatus("live");
-                    } else {
-                        // LOGIC ERROR
-                        throw new Error(response.error || 'Unknown API Error');
                     }
                 })
-                .catch(err => {
-                    console.warn("Fetch failed, switching to Mock Data Mode.", err);
-                    // FAIL: Show Mock Data
-                    const mockData = generateMockData();
-                    updateDashboard(mockData);
-                    showStatus("demo", err.message);
-                })
+                .catch(err => console.error(err))
                 .finally(() => {
-                    // UI Cleanup
-                    refreshIcon.classList.remove('fa-spin');
-                    loading.classList.add('hidden');
-                    dashboard.classList.remove('hidden');
-                    // Trigger fade-in
-                    setTimeout(() => dashboard.classList.add('opacity-100'), 50);
+                    btn.classList.remove('fa-spin');
                 });
         }
-
-        // --- UI Helper Functions ---
-
-        function showStatus(type, errorMsg = "") {
-            const badge = document.getElementById('statusBadge');
-            const text = document.getElementById('statusText');
-            
-            badge.classList.remove('hidden', 'bg-green-500/20', 'text-green-400', 'border-green-500/30', 'bg-yellow-500/20', 'text-yellow-400', 'border-yellow-500/30');
-            const dot = badge.querySelector('span:first-child');
-            dot.classList.remove('status-dot-live');
-
-            if (type === 'live') {
-                // Live Mode Style
-                badge.classList.add('bg-green-500/10', 'text-green-400', 'border-green-500/30');
-                text.textContent = "已連線至 Google Sheets";
-                dot.classList.add('bg-green-500', 'status-dot-live');
-            } else {
-                // Demo Mode Style
-                badge.classList.add('bg-yellow-500/10', 'text-yellow-400', 'border-yellow-500/30');
-                text.innerHTML = `演示模式 (連線失敗 <i class="fas fa-info-circle" title="${errorMsg}"></i>)`;
-                dot.classList.add('bg-yellow-500');
-                
-                // Show toast alert
-                // alert("連線失敗，已切換至演示模式。\n請確認 GAS 是否已發布為「新版本」。");
-            }
-        }
-
-        function generateMockData() {
-            const categories = ['護理', '藥事', '醫事放射', '醫事檢驗', '營養', '物理治療', '職能治療', '臨床心理', '語言治療'];
-            const mock = [];
-            for (let i = 0; i < 25; i++) {
-                mock.push({
-                    organization: '測試醫院 (演示資料)',
-                    jobTitle: i % 3 === 0 ? '主治醫師' : (i % 2 === 0 ? '物理治療師' : '護理師'),
-                    category: categories[Math.floor(Math.random() * categories.length)],
-                    isHost: Math.random() > 0.7 ? '是' : '否',
-                    participation: Math.random() > 0.4 ? '實體參與' : '線上參與'
-                });
-            }
-            return mock;
-        }
-
-        // --- Core Dashboard Logic ---
 
         function updateDashboard(data) {
-            // 1. Calculate Metrics
+            // 1. 計算數據
             const total = data.length;
-            const physical = data.filter(d => d.participation && d.participation.includes('實體')).length;
-            const online = data.filter(d => d.participation && d.participation.includes('線上')).length;
-            const hosts = data.filter(d => d.isHost && d.isHost === '是').length;
+            const checkin = data.filter(r => r.checkin === 'TRUE').length;
+            const external = data.filter(r => r.identity === '院外').length;
+            const internal = total - external;
+            const veg = data.filter(r => r.diet === '素食').length;
+            const meat = total - veg;
 
-            // Update Cards
+            // 2. 更新數字卡片
             animateValue("totalCount", total);
-            animateValue("physicalCount", physical);
-            animateValue("onlineCount", online);
-            animateValue("hostCount", hosts);
-
-            // 2. Prepare Chart Data
-            const categories = {};
-            data.forEach(d => {
-                const cat = d.category || '未分類';
-                categories[cat] = (categories[cat] || 0) + 1;
-            });
-
-            // 3. Render Charts
-            renderCategoryChart(categories);
-            renderParticipationChart(physical, online);
-
-            // 4. Render Table (Last 10 records)
-            const tableBody = document.getElementById('dataTableBody');
-            tableBody.innerHTML = '';
+            animateValue("checkinCount", checkin);
+            animateValue("externalCount", external);
+            animateValue("vegCount", veg);
             
-            if (data.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500">尚無報名資料</td></tr>';
-                return;
-            }
+            const rate = total > 0 ? Math.round((checkin / total) * 100) : 0;
+            document.getElementById("checkinRate").innerText = `${rate}% 報到率`;
 
-            const recentData = data.slice().reverse().slice(0, 10); 
-            
-            recentData.forEach((row, index) => {
-                const isPhysical = row.participation && row.participation.includes('實體');
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-white/5 transition-colors animate-fade-in-up";
-                tr.style.animationDelay = `${index * 50}ms`;
-                tr.innerHTML = `
-                    <td class="px-6 py-4 font-medium text-white">${row.organization || '-'}</td>
-                    <td class="px-6 py-4">${row.jobTitle || '-'}</td>
-                    <td class="px-6 py-4"><span class="px-2 py-1 bg-white/10 rounded text-xs">${row.category || '-'}</span></td>
-                    <td class="px-6 py-4">
-                        <span class="${isPhysical ? 'text-primary' : 'text-accent'}">
-                            <i class="fas ${isPhysical ? 'fa-building' : 'fa-wifi'} mr-1"></i>
-                            ${row.participation || '-'}
-                        </span>
-                    </td>
-                `;
-                tableBody.appendChild(tr);
-            });
+            // 3. 更新圖表
+            updateCharts(internal, external, meat, veg);
+
+            // 4. 更新列表 (取最新 5 筆)
+            renderRecentTable(data.slice().reverse().slice(0, 5));
         }
 
-        function renderCategoryChart(dataObj) {
-            const ctx = document.getElementById('categoryChart').getContext('2d');
-            const labels = Object.keys(dataObj);
-            const values = Object.values(dataObj);
-
-            if (categoryChartInst) categoryChartInst.destroy();
-
-            categoryChartInst = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: '人數',
-                        data: values,
-                        backgroundColor: '#a94438',
-                        borderRadius: 4,
-                        barThickness: 20
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                            ticks: { color: '#9ca3af', stepSize: 1 }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { color: '#9ca3af' }
-                        }
-                    }
-                }
-            });
-        }
-
-        function renderParticipationChart(phy, onl) {
-            const ctx = document.getElementById('participationChart').getContext('2d');
-            if (participationChartInst) participationChartInst.destroy();
-
-            participationChartInst = new Chart(ctx, {
+        function updateCharts(internal, external, meat, veg) {
+            // Identity Chart
+            const ctx1 = document.getElementById('identityChart').getContext('2d');
+            if(identityChart) identityChart.destroy();
+            identityChart = new Chart(ctx1, {
                 type: 'doughnut',
                 data: {
-                    labels: ['實體參與', '線上參與'],
+                    labels: ['院內同仁', '院外人士'],
                     datasets: [{
-                        data: [phy, onl],
+                        data: [internal, external],
                         backgroundColor: ['#a94438', '#3a4a61'],
-                        borderWidth: 0,
-                        hoverOffset: 4
+                        borderWidth: 0
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { color: '#f4f1ea', padding: 20, usePointStyle: true }
-                        }
-                    }
+                    plugins: { legend: { position: 'bottom', labels: { color: '#ccc' } } }
                 }
+            });
+
+            // Diet Chart
+            const ctx2 = document.getElementById('dietChart').getContext('2d');
+            if(dietChart) dietChart.destroy();
+            dietChart = new Chart(ctx2, {
+                type: 'pie',
+                data: {
+                    labels: ['葷食', '素食'],
+                    datasets: [{
+                        data: [meat, veg],
+                        backgroundColor: ['#525252', '#4ade80'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#ccc' } } }
+                }
+            });
+        }
+
+        function renderRecentTable(data) {
+            const tbody = document.getElementById('recentTable');
+            tbody.innerHTML = '';
+            
+            data.forEach((row, i) => {
+                const tr = document.createElement('tr');
+                tr.className = "animate-fade-in-up hover:bg-white/5";
+                tr.style.animationDelay = `${i * 100}ms`;
+                
+                const statusBadge = row.checkin === 'TRUE' 
+                    ? '<span class="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">已報到</span>'
+                    : '<span class="px-2 py-1 bg-gray-500/20 text-gray-500 rounded text-xs">未報到</span>';
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4">${statusBadge}</td>
+                    <td class="px-6 py-4 text-white font-bold">${row.name}</td>
+                    <td class="px-6 py-4">${row.org}</td>
+                    <td class="px-6 py-4 text-xs">${row.identity}</td>
+                    <td class="px-6 py-4 text-xs">${row.diet}</td>
+                `;
+                tbody.appendChild(tr);
             });
         }
 
@@ -407,20 +249,13 @@
             if (!obj) return;
             const start = parseInt(obj.innerText) || 0;
             if (start === end) return;
-            
-            const duration = 1000;
-            const range = end - start;
             let current = start;
             const increment = end > start ? 1 : -1;
-            const stepTime = Math.abs(Math.floor(duration / range));
-            
-            const timer = setInterval(function() {
+            const timer = setInterval(() => {
                 current += increment;
-                obj.innerHTML = current;
-                if (current == end) {
-                    clearInterval(timer);
-                }
-            }, Math.max(stepTime, 20));
+                obj.innerText = current;
+                if (current === end) clearInterval(timer);
+            }, 50);
         }
     </script>
 </body>
